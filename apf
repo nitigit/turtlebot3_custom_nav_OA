@@ -1,0 +1,95 @@
+import rclpy
+from rclpy.node import Node
+from geometry_msgs.msg import Twist, Point
+from sensor_msgs.msg import LaserScan
+from nav_msgs.msg import Odometry
+from rclpy.qos import qos_profile_sensor_data
+import math
+import numpy as np
+
+class APFController(Node):
+    def __init__(self):
+        super().__init__('apf_controller')
+        self.cmd_pub = self.create_publisher(Twist, '/cmd_vel', 10)
+        # Using qos_profile_sensor_data prevents the QoS mismatch warning!
+        self.scan_sub = self.create_subscription(LaserScan, '/scan', self.scan_callback, qos_profile_sensor_data)
+        self.odom_sub = self.create_subscription(Odometry, '/odom', self.odom_callback, 10)
+        self.waypoint_sub = self.create_subscription(Point, '/current_waypoint', self.waypoint_callback, 10)
+        
+        self.current_pos = np.array([0.0, 0.0])
+        self.current_yaw = 0.0
+        self.goal_pos = None
+        
+        # APF Parameters
+        self.zeta = 1.0   # Attractive gain 
+        self.eta = 0.15   # Increased repulsive gain to push back harder against walls
+        self.rho_0 = 0.45 # Distance of influence for obstacles (meters)
+
+    def odom_callback(self, msg):
+        self.current_pos[0] = msg.pose.pose.position.x
+        self.current_pos[1] = msg.pose.pose.position.y
+        
+        q = msg.pose.pose.orientation
+        siny_cosp = 2 * (q.w * q.z + q.x * q.y)
+        cosy_cosp = 1 - 2 * (q.y * q.y + q.z * q.z)
+        self.current_yaw = math.atan2(siny_cosp, cosy_cosp)
+
+    def waypoint_callback(self, msg):
+        self.goal_pos = np.array([msg.x, msg.y])
+
+    def scan_callback(self, msg):
+        if self.goal_pos is None:
+            self.publish_velocity(np.array([0.0, 0.0]))
+            return
+
+        # 1. Attractive Force Gradient: Pulls toward Dijkstra waypoint
+        f_att = -self.zeta * (self.current_pos - self.goal_pos)
+        
+        # 2. Repulsive Force Gradient from LiDAR
+        f_rep = np.array([0.0, 0.0])
+        ranges = np.array(msg.ranges)
+        angle_min = msg.angle_min
+        angle_increment = msg.angle_increment
+        
+        for i, r in enumerate(ranges):
+            if 0.12 < r < self.rho_0: 
+                angle = angle_min + i * angle_increment + self.current_yaw
+                
+                # F_rep magnitude based on distance
+                magnitude = self.eta * (1.0/r - 1.0/self.rho_0) * (1.0 / (r**2))
+                
+                # SUBTRACTING the components points the vector exactly 180 degrees AWAY from the wall
+                f_rep[0] -= magnitude * math.cos(angle)
+                f_rep[1] -= magnitude * math.sin(angle)
+
+        # 3. Superposition
+        f_total = f_att + f_rep
+        self.publish_velocity(f_total)
+
+    def publish_velocity(self, force_vector):
+        twist = Twist()
+        
+        if np.linalg.norm(force_vector) < 0.01:
+            self.cmd_pub.publish(twist)
+            return
+
+        desired_yaw = math.atan2(force_vector[1], force_vector[0])
+        yaw_error = desired_yaw - self.current_yaw
+        yaw_error = math.atan2(math.sin(yaw_error), math.cos(yaw_error))
+        
+        # Forward speed is proportional to how aligned we are with the force vector.
+        # If we need to turn sharply (high yaw error), forward speed drops to 0.
+        twist.linear.x = min(0.2, max(0.0, 0.4 * math.cos(yaw_error) * np.linalg.norm(force_vector)))
+        twist.angular.z = min(2.0, max(-2.0, 1.8 * yaw_error))
+        
+        self.cmd_pub.publish(twist)
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = APFController()
+    rclpy.spin(node)
+    node.destroy_node()
+    rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()
