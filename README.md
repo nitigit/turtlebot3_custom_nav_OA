@@ -3,7 +3,9 @@
 This project presents a fully custom, Python-based autonomous navigation system designed for the TurtleBot3 platform. The primary objective was to bypass the standard TurtleBot3 navigation library to process raw sensor data into direct motor commands, providing a transparent view of robot path planning and obstacle avoidance. 
 
 ## 🎥 Demonstration
+
 https://github.com/user-attachments/assets/f8431380-71a2-4171-af0f-bb5f52502bad
+
 *demo.mp4 is showing the obstacle avoidance capabilities using lidar*.
 
 ## ⚙️ System Overview
