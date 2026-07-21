@@ -3,7 +3,7 @@
 This project presents a fully custom, Python-based autonomous navigation system designed for the TurtleBot3 platform. The primary objective was to bypass the standard TurtleBot3 navigation library to process raw sensor data into direct motor commands, providing a transparent view of robot path planning and obstacle avoidance. 
 
 ## 🎥 Demonstration
-<video src="demo.mp4" controls="controls" muted="muted" style="max-width:730px;"></video>
+<video src="media/demo.mp4" controls="controls" muted="muted" style="max-width:730px;"></video>
 
 *demo.mp4 is showing the obstacle avoidance capabilities using lidar*.
 
@@ -15,7 +15,7 @@ The system utilizes the `slam_toolbox` for reliable mapping and real-time locati
 *   Uses the Artificial Potential Field (APF) method for navigation.
 *   Gives the robot the ability to explore unknown locations while successfully avoiding obstacles detected in the LDS-01 LiDAR data.
 
-![Figure 1: Mode A](figure_1.jpeg)
+![Figure 1: Mode A](media/figure_1.jpeg)
 *Figure 1: Mode A shows the SLAM scan data that the robot recorded on its initial exploration through the room that uses APF to avoid obstacles detected in black. The red arrow shows the direction the robot is orientated.*.
 
 ### Mode B: Global Path Planning
@@ -23,7 +23,7 @@ The system utilizes the `slam_toolbox` for reliable mapping and real-time locati
 *   Navigates to a specified goal point provided by the user in the UI on a remote Ubuntu laptop.
 *   A cost inflation layer was added to grid spaces directly next to walls, forcing the algorithm to draw paths down the center of hallways to prevent collisions.
 
-![Figure 2: Mode B](figure_2.jpeg)
+![Figure 2: Mode B](media/figure_2.jpeg)
 *Figure 2: Mode B shows that the red point is the current location of the robot, the blue point is the destination set by the user, and the green line is the path that the robot took from the Dijkstra algorithm.*.
 
 ## 🛠️ Implementation Details
